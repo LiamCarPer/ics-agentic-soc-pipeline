@@ -1,0 +1,6 @@
+start_time,end_time,anomaly_type,description
+2026-06-13T09:26:21+00:00,2026-06-13T09:26:36+00:00,overfill,Tank level exceeded 90% — overfill risk
+2026-06-13T09:29:21+00:00,2026-06-13T09:29:31+00:00,unauthorized_write,Modbus write (FC 6) from untrusted IP
+2026-06-13T09:32:41+00:00,2026-06-13T09:33:01+00:00,scanning,Rapid Modbus exceptions from untrusted IP — scanning detected
+2026-06-13T09:36:01+00:00,2026-06-13T09:36:16+00:00,physics_violation,Valve OPEN while tank level > 90% — impossible state
+2026-06-13T09:39:21+00:00,2026-06-13T09:39:36+00:00,cavitation,Tank level dropped below 10% — cavitation risk
