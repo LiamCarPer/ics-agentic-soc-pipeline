@@ -1,0 +1,7 @@
+[
+  {"time": 600, "type": "overfill", "duration": 15},
+  {"time": 780, "type": "unauthorized_write", "duration": 10},
+  {"time": 960, "type": "scanning", "duration": 20},
+  {"time": 1000, "type": "physics_violation", "duration": 15},
+  {"time": 1080, "type": "cavitation", "duration": 12}
+]
