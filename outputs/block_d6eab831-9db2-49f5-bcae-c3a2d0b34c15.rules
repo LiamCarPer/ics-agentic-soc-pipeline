@@ -1,0 +1,8 @@
+alert modbus $EXTERNAL_NET any -> $HOME_NET 502 (
+    msg:"OT SOC - Modbus Exception Scan from 172.24.0.10 to 172.21.0.10";
+    content:"|00 83|";
+    flow:to_server;
+    sid:2027419;
+    classtype:attempted-recon;
+    rev:1;
+    metadata:alert_id d6eab831-9db2-49f5-bcae-c3a2d0b34c15;)

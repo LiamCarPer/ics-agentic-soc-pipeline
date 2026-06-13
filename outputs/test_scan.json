@@ -1,0 +1,102 @@
+{
+  "alert_id": "d6eab831-9db2-49f5-bcae-c3a2d0b34c15",
+  "timestamp": "2026-06-13T11:13:14+00:00",
+  "plc_id": "plc_intake",
+  "plc_ip": "172.21.0.10",
+  "anomaly_score": -0.0355,
+  "window_start": "2026-06-13T11:12:49+00:00",
+  "window_end": "2026-06-13T11:13:14+00:00",
+  "window_summary": {
+    "tank_level_mean": 25.9,
+    "tank_level_max": 92.2,
+    "has_write_fc": 0,
+    "source_ips": [
+      "172.24.0.10",
+      "172.22.0.10"
+    ],
+    "function_codes": [
+      3,
+      131
+    ]
+  },
+  "raw_data": [
+    {
+      "plc_id": "plc_intake",
+      "plc_ip": "172.21.0.10",
+      "reg_0_inlet_valve": 1,
+      "reg_1": 0,
+      "reg_2": 0,
+      "reg_3": 0,
+      "reg_4": 0,
+      "reg_5_tank_level": 13.7,
+      "source_ip": "172.24.0.10",
+      "function_code": 131,
+      "function_name": "EXCEPTION"
+    },
+    {
+      "plc_id": "plc_intake",
+      "plc_ip": "172.21.0.10",
+      "reg_0_inlet_valve": 1,
+      "reg_1": 0,
+      "reg_2": 0,
+      "reg_3": 0,
+      "reg_4": 0,
+      "reg_5_tank_level": 12.8,
+      "source_ip": "172.22.0.10",
+      "function_code": 3,
+      "function_name": "READ_HOLDING"
+    },
+    {
+      "plc_id": "plc_intake",
+      "plc_ip": "172.21.0.10",
+      "reg_0_inlet_valve": 1,
+      "reg_1": 0,
+      "reg_2": 0,
+      "reg_3": 0,
+      "reg_4": 0,
+      "reg_5_tank_level": 12.6,
+      "source_ip": "172.22.0.10",
+      "function_code": 3,
+      "function_name": "READ_HOLDING"
+    },
+    {
+      "plc_id": "plc_intake",
+      "plc_ip": "172.21.0.10",
+      "reg_0_inlet_valve": 1,
+      "reg_1": 0,
+      "reg_2": 0,
+      "reg_3": 0,
+      "reg_4": 0,
+      "reg_5_tank_level": 12.2,
+      "source_ip": "172.22.0.10",
+      "function_code": 3,
+      "function_name": "READ_HOLDING"
+    },
+    {
+      "plc_id": "plc_intake",
+      "plc_ip": "172.21.0.10",
+      "reg_0_inlet_valve": 1,
+      "reg_1": 0,
+      "reg_2": 0,
+      "reg_3": 0,
+      "reg_4": 0,
+      "reg_5_tank_level": 11.9,
+      "source_ip": "172.22.0.10",
+      "function_code": 3,
+      "function_name": "READ_HOLDING"
+    },
+    {
+      "plc_id": "plc_intake",
+      "plc_ip": "172.21.0.10",
+      "reg_0_inlet_valve": 1,
+      "reg_1": 0,
+      "reg_2": 0,
+      "reg_3": 0,
+      "reg_4": 0,
+      "reg_5_tank_level": 92.2,
+      "source_ip": "172.24.0.10",
+      "function_code": 3,
+      "function_name": "READ_HOLDING"
+    }
+  ]
+}

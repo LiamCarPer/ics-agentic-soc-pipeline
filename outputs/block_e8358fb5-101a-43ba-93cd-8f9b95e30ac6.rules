@@ -1,0 +1,8 @@
+alert modbus $EXTERNAL_NET any -> $HOME_NET 502 (
+    msg:"OT SOC - Unauthorized Modbus Write from 172.24.0.10 to 172.21.0.10";
+    content:"|00 06|";
+    flow:to_server;
+    sid:6306854;
+    classtype:attempted-admin;
+    rev:1;
+    metadata:alert_id e8358fb5-101a-43ba-93cd-8f9b95e30ac6;)
