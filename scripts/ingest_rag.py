@@ -105,10 +105,20 @@ def main():
         print(f"Error: no markdown files found in {RAG_DIR}", file=sys.stderr)
         sys.exit(1)
 
+    SOURCE_TYPE_MAP = {
+        "asset_inventory": ("asset", "plc ip zone firmware asset ot device"),
+        "iec62443_controls": ("control", "iec 62443 security control standard requirement"),
+        "past_incidents": ("incident", "past incident report anomaly attack response"),
+    }
+
     for md_path in md_files:
         text = md_path.read_text(encoding="utf-8")
         chunks = chunk_markdown(text, md_path.stem)
         print(f"  {md_path.name}: {len(chunks)} chunks")
+
+        source_type, default_keywords = SOURCE_TYPE_MAP.get(
+            md_path.stem, ("unknown", "ot security")
+        )
 
         for i, (content, heading) in enumerate(chunks):
             doc_id = f"{md_path.stem}_{i:03d}"
@@ -116,8 +126,10 @@ def main():
             metadatas.append(
                 {
                     "source": md_path.stem,
+                    "source_type": source_type,
                     "section": heading,
                     "file": md_path.name,
+                    "keywords": default_keywords,
                 }
             )
             ids.append(doc_id)
