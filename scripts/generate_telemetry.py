@@ -60,7 +60,7 @@ class Config:
     treatment_ip: str = "172.21.0.11"
     distribution_ip: str = "172.21.0.12"
     tank_min: float = 5.0
-    tank_max: float = 95.0
+    tank_max: float = 85.0
     valve_open_threshold: float = 20.0
     valve_close_threshold: float = 80.0
     fill_rate_min: float = 0.3

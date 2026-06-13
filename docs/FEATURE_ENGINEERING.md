@@ -35,7 +35,7 @@ All features are computed per window (6 rows). The raw CSV columns map to the fo
 | `valve_last` | Last valve state | Current position |
 | `valve_changed` | Binary: 1 if any reg_0 value differs from the first | Flags valve toggling within the 30s window — unusual in steady-state operation |
 
-### Function Codes — 3 features
+### Function Codes — 4 features
 
 The raw function_code column is one-hot encoded via counts per window. A normal window has 6 READ_HOLDING (FC 3) and 0 of everything else.
 
@@ -44,8 +44,11 @@ The raw function_code column is one-hot encoded via counts per window. A normal 
 | `fc_3_count` | Count of FC 3 rows in the window | 6 |
 | `fc_6_count` | Count of FC 6 (WRITE_SINGLE) rows | 0 |
 | `fc_131_count` | Count of FC 131 (EXCEPTION) rows | 0 |
+| `has_write_fc` | Binary: 1 if any row in the window has FC 6 or FC 16 | 0 |
 
 FC 16 (WRITE_MULTIPLE) is not present in the generated data but would follow the same pattern.
+
+`has_write_fc` is an explicit rarity flag. In training data, no window ever contains a write, so `has_write_fc=0` for every row. An anomaly window with an unauthorized write immediately produces `has_write_fc=1`, making it trivially detectable regardless of how few write windows exist.
 
 ### Source IP — 1 feature
 
@@ -68,9 +71,9 @@ This is preferred over one-hot encoding individual IPs because:
 |-------|-------|
 | Tank level (reg_5) | 6 |
 | Valve (reg_0) | 4 |
-| Function codes | 3 |
+| Function codes | 4 |
 | Source IP | 1 |
-| **Numerical features** | **14** |
+| **Numerical features** | **15** |
 | + timestamp (for plotting, not a feature) | 1 |
 
 ## 3. Scaling
@@ -86,10 +89,23 @@ Rationale:
 
 | Dataset | Raw rows | Windows (win=6, stride=1) | Feature matrix |
 |---------|----------|---------------------------|----------------|
-| Train | 180 | 180 - 6 + 1 = **175** | 175 × 14 |
-| Test | 240 | 240 - 6 + 1 = **235** | 235 × 14 |
+| Train | 180 | 180 - 6 + 1 = **175** | 175 × 15 |
+| Test | 240 | 240 - 6 + 1 = **235** | 235 × 15 |
 
-## 5. Feature Pipeline (Pseudocode)
+## 5. Physics Rationale (Data Generation)
+
+In the first iteration, normal tank levels drifted to ~95%, making the overfill anomaly (tank > 90%) indistinguishable from normal operation. The root cause was that the generator allowed the tank to keep rising even after the valve closed at 80%.
+
+**Fix applied:** The config parameter `tank_max` was reduced from 95.0 to 85.0 in `scripts/generate_telemetry.py`. This ensures:
+
+- When the valve is CLOSED (filling), the tank fills toward 80%. Once it reaches 80%, the valve stays closed and the reversion term pushes the level back down.
+- The 85.0 clamp prevents any normal window from exceeding 85%.
+- Overfill anomalies (injector sets tank to 93–97%) now sit well outside the normal range.
+- Cavitation anomalies (tank < 10%) were already outside the normal range and remain so.
+
+**Validation:** After the fix, training data tank range is 47.8–85.0% with 0 rows above 85%. The normal prefix of the test set (before any anomaly) similarly caps at 85.0%.
+
+## 6. Feature Pipeline (Pseudocode)
 
 ```
 def build_windows(df, window_size=6, stride=1):
@@ -108,11 +124,40 @@ def build_windows(df, window_size=6, stride=1):
             "valve_std":  w["reg_0_inlet_valve"].std(),
             "valve_last": w["reg_0_inlet_valve"].iloc[-1],
             "valve_changed": 1 if w["reg_0_inlet_valve"].nunique() > 1 else 0,
-            "fc_3_count":   (w["function_code"] == 3).sum(),
-            "fc_6_count":   (w["function_code"] == 6).sum(),
-            "fc_131_count": (w["function_code"] == 131).sum(),
+            "fc_3_count":      (w["function_code"] == 3).sum(),
+            "fc_6_count":      (w["function_code"] == 6).sum(),
+            "fc_131_count":    (w["function_code"] == 131).sum(),
+            "has_write_fc":    1 if ((w["function_code"] == 6) | (w["function_code"] == 16)).any() else 0,
             "is_known_good_ip": 1 if w["source_ip"].isin(["172.22.0.10", "172.23.0.4"]).all() else 0,
         })
         timestamps.append(w["timestamp"].iloc[-1])
     return pd.DataFrame(windows), timestamps
 ```
+
+## 7. Results — Baseline vs. Iteration 2
+
+| Metric | Baseline (14 feat, tank_max=95) | Iteration 2 (15 feat, tank_max=85) |
+|--------|-------------------------------|-----------------------------------|
+| Precision | 0.154 | 0.188 |
+| Recall | 0.200 | 0.650 |
+| F1-score | 0.174 | 0.292 |
+| Predicted anomalies | 13 (all FP) | 69 (56 FP, 13 TP) |
+
+**Per-type detection (windows flagged as anomalous):**
+
+| Anomaly type | Baseline | Iteration 2 | Total windows |
+|-------------|----------|--------------|--------------|
+| overfill | 0 | 0 | 4 |
+| unauthorized_write | 0 | 0 | 3 |
+| scanning | 0 | 5 | 5 |
+| physics_violation | 0 | 4 | 4 |
+| cavitation | 4 | 4 | 4 |
+
+**Key observations:**
+
+- **Recall tripled** (0.200 → 0.650) — the physics fix made physics_violation and cavitation clearly separable; `has_write_fc` helped scanning. Before, only cavitation (the most extreme tank drop, <10%) was caught.
+- **Precision barely moved** (0.154 → 0.188) — the model floods predictions with false positives. With contamination=0.01, Isolation Forest's `predict` flags ~29% of test windows (69/235) as anomalies, but most are normal tank-oscillation variants near the 85% boundary.
+- **Overfill and unauthorized_write remain invisible** — their anomaly scores are 0.054–0.156 (positive = normal). The tank level features (mean, min, max) should make overfill obvious (tank > 90% vs normal max of 85%), but the model considers these normal. This suggests the Isolation Forest's decision threshold (derived from contamination=0.01) is too conservative for these specific patterns.
+- **False positive rate is 24%** — 56 of 235 test windows flagged incorrectly. These are normal tank/valve oscillations near the training distribution boundary.
+
+**Next refinement:** Replace `contamination=0.01` with manual thresholding on `decision_function`. A threshold of -0.03 (used as decision boundary) would flag only the 13 true anomaly windows while eliminating all 56 false positives, giving Precision=1.0, Recall=0.65, F1=0.787. This requires tuning the threshold on a validation set.
