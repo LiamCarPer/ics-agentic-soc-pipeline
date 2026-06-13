@@ -348,28 +348,14 @@ def generate_suricata_rule(
     return result
 
 
-def main():
-    parser = argparse.ArgumentParser(
-        description="OT SOC Analyst Agent — analyze alerts, write NIST reports, generate Suricata rules."
-    )
-    parser.add_argument(
-        "--alert",
-        type=str,
-        default=None,
-        help="Path to a single alert JSON file. If omitted, read JSON from stdin.",
-    )
-    args = parser.parse_args()
+def run_agent(alert: dict) -> dict:
+    """Execute the full agent pipeline on a single alert.
 
-    if args.alert:
-        alert_path = Path(args.alert)
-        if not alert_path.exists():
-            print(f"Error: alert file not found: {alert_path}", file=sys.stderr)
-            sys.exit(1)
-        with open(alert_path) as f:
-            alert = json.load(f)
-    else:
-        alert = json.load(sys.stdin)
-
+    Returns dict with keys:
+        summary        — one-paragraph summary of what was done
+        incident_path  — path to the written incident report (or None)
+        rule_path      — path to the written Suricata rule (or None)
+    """
     alert_id = alert.get("alert_id", "unknown")
 
     print(f"Loading RAG context for alert {alert_id[:8]}...", file=sys.stderr)
@@ -393,12 +379,54 @@ def main():
         {"recursion_limit": 50},
     )
 
+    summary = ""
+    incident_path = None
+    rule_path = None
     for msg in result["messages"]:
         if msg.type == "ai" and msg.content:
-            print(msg.content)
-            break
+            summary = msg.content
+    for msg in result["messages"]:
+        if msg.type == "tool" and "incident_" in getattr(msg, "content", ""):
+            match = re.search(r"/outputs/incident_\S+\.md", msg.content)
+            if match:
+                incident_path = match.group(0)
+        if msg.type == "tool" and "block_" in getattr(msg, "content", ""):
+            match = re.search(r"/outputs/block_\S+\.rules", msg.content)
+            if match:
+                rule_path = match.group(0)
 
-    print(f"\nAll outputs written to {OUTPUTS_DIR}/", file=sys.stderr)
+    return {
+        "summary": summary,
+        "incident_path": incident_path,
+        "rule_path": rule_path,
+    }
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="OT SOC Analyst Agent — analyze alerts, write NIST reports, generate Suricata rules."
+    )
+    parser.add_argument(
+        "--alert",
+        type=str,
+        default=None,
+        help="Path to a single alert JSON file. If omitted, read JSON from stdin.",
+    )
+    args = parser.parse_args()
+
+    if args.alert:
+        alert_path = Path(args.alert)
+        if not alert_path.exists():
+            print(f"Error: alert file not found: {alert_path}", file=sys.stderr)
+            sys.exit(1)
+        with open(alert_path) as f:
+            alert = json.load(f)
+    else:
+        alert = json.load(sys.stdin)
+
+    result = run_agent(alert)
+    print(result["summary"])
+    print(f"\nAll outputs written to {OUTPUTS_DIR}/")
 
 
 if __name__ == "__main__":

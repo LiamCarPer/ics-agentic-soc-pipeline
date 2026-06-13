@@ -1,26 +1,38 @@
 """
 webhook_receiver.py — Event bridge for anomaly alerts.
 
-Simulates an event bus / message queue that receives anomaly alerts
-from the detection service and makes them available to downstream
-consumers (RAG enricher, agentic core).
+Receives alerts from the detection service, stores them in memory,
+and immediately triggers the OT SOC Agent (LLM pipeline) for enrichment
+and report generation.
 
 Endpoints:
-    POST /alert   — receive one alert (validates required fields)
+    POST /alert   — receive one alert, trigger agent, return results
     GET  /alerts  — return all received alerts (for verification)
 
 Run:
     python scripts/webhook_receiver.py
 """
 
+import sys
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import List, Optional
 
+# Ensure project root is on sys.path for `from src.*` imports
+_proj_root = Path(__file__).resolve().parent.parent
+if str(_proj_root) not in sys.path:
+    sys.path.insert(0, str(_proj_root))
+
+from dotenv import load_dotenv
 from fastapi import FastAPI
 from pydantic import BaseModel, Field, field_validator
 import uvicorn
 
-app = FastAPI(title="Alert Webhook Receiver", version="0.1.0")
+from scripts.agent import run_agent
+
+load_dotenv()
+
+app = FastAPI(title="Alert Webhook Receiver", version="0.2.0")
 
 # ---------------------------------------------------------------------------
 # In-memory alert store (stand-in for a real queue like SQS or RabbitMQ)
@@ -68,13 +80,37 @@ class AlertPayload(BaseModel):
 @app.post("/alert", status_code=202)
 def handle_alert(alert: AlertPayload):
     now = datetime.now(timezone.utc).isoformat()
+    alert_dict = alert.model_dump()
+
     print(
         f"[{now}] PUBLISH alert_id={alert.alert_id} "
         f"to queue:alerts | plc={alert.plc_id} "
         f"score={alert.anomaly_score:.3f}"
     )
-    _received_alerts.append(alert.model_dump())
-    return {"status": "received", "alert_id": alert.alert_id}
+    _received_alerts.append(alert_dict)
+
+    # TODO: production → fire-and-forget with asyncio.create_task / background worker
+    try:
+        agent_result = run_agent(alert_dict)
+        print(
+            f"[{now}] AGENT DONE alert_id={alert.alert_id} "
+            f"incident={agent_result.get('incident_path', 'N/A')} "
+            f"rule={agent_result.get('rule_path', 'N/A')}"
+        )
+        return {
+            "status": "received",
+            "alert_id": alert.alert_id,
+            "agent_summary": agent_result.get("summary", ""),
+            "incident_path": agent_result.get("incident_path"),
+            "rule_path": agent_result.get("rule_path"),
+        }
+    except Exception as exc:
+        print(f"[{now}] AGENT FAILED alert_id={alert.alert_id}: {exc}", file=sys.stderr)
+        return {
+            "status": "received",
+            "alert_id": alert.alert_id,
+            "agent_error": str(exc),
+        }
 
 
 @app.get("/alerts")

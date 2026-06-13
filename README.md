@@ -1,37 +1,108 @@
 # ICS Agentic SOC Pipeline
 
-End-to-end pipeline: ML anomaly detection → RAG enrichment → LLM agent (NIST reports + Suricata rules).
+**ML anomaly detection → RAG enrichment → LLM agent (NIST reports + Suricata rules).**
 
-## Pipeline Overview
+An end-to-end agentic AI pipeline that acts as a Level 1 SOC Analyst for OT/ICS environments. Built for the [OT-Security-Lab](https://github.com/LiamCarPer/ot-security-lab) water treatment simulation.
+
+[![CI](https://github.com/LiamCarPer/ics-agentic-soc-pipeline/actions/workflows/test.yml/badge.svg)](https://github.com/LiamCarPer/ics-agentic-soc-pipeline/actions/workflows/test.yml)
+
+---
+
+## Architecture
 
 ```
 Telemetry CSV → detect_anomalies.py → alerts.jsonl
-                                           ↓
+                                            ↓
+                                     POST /alert → webhook_receiver.py
+                                            ↓
                                      src/rag.py (ChromaDB enrichment)
-                                           ↓
-                                     agent.py (LLM agent)
-                                           ↓
+                                            ↓
+                                     agent.py (LangChain + GPT-4o-mini)
+                                            ↓
                               outputs/incident_*.md  +  block_*.rules
 ```
 
-## 1. Detection Service
+(Full ASCII diagram in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).)
 
-Run the anomaly detection pipeline from the command line:
+---
+
+## Quick Start
+
+### Prerequisites
+
+- Python 3.11+
+- An OpenAI API key (or [OpenRouter](https://openrouter.ai) key)
+
+### Setup
 
 ```bash
+git clone https://github.com/LiamCarPer/ics-agentic-soc-pipeline.git
+cd ics-agentic-soc-pipeline
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+```
+
+### Environment
+
+```bash
+# .env
+OPENAI_API_KEY=sk-...
+# Optional: for OpenRouter or Ollama
+OPENAI_BASE_URL=https://openrouter.ai/api/v1
+```
+
+### Ingest Knowledge
+
+```bash
+python scripts/ingest_rag.py --reset
+```
+
+### Start the Webhook Receiver
+
+```bash
+uvicorn scripts.webhook_receiver:app --host 0.0.0.0 --port 8000
+```
+
+### Send an Alert
+
+```bash
+curl -X POST http://localhost:8000/alert \
+  -H "Content-Type: application/json" \
+  -d @sample_alert.json
+```
+
+The receiver logs `PUBLISH alert_id=...`, triggers the agent, and returns the incident report summary and Suricata rule path in the response.
+
+### Outputs
+
+| File | Contents |
+|------|----------|
+| `outputs/incident_*.md` | NIST SP 800-61 incident report with affected assets, observed activity, impact assessment, and RAG citations |
+| `outputs/block_*.rules` | Suricata rule targeting the specific Modbus pattern (FC 6 writes, FC 131 scans, etc.) |
+
+---
+
+## Components
+
+### 1. Detection Service
+
+Train and run the anomaly detection model:
+
+```bash
+# Generate telemetry
+python scripts/generate_telemetry.py
+
+# Detect anomalies
 python scripts/detect_anomalies.py \
   --input data/test/telemetry.csv \
   --output data/alerts.jsonl \
   --model models/isolation_forest.joblib \
-  --scaler models/scaler.joblib
+  --scaler models/scaler.joblib \
+  --threshold -0.03
 ```
 
-Optional arguments:
-- `--window-size N` — sliding window size in rows (default: 6)
-- `--stride N` — step between windows (default: 1)
-- `--threshold FLOAT` — manual decision function cutoff; scores below this are flagged. If omitted, uses the model's default `predict()`.
-
-## 2. RAG Ingestion
+### 2. RAG Ingestion
 
 Ingest OT knowledge into ChromaDB (asset inventory, IEC 62443 controls, past incidents):
 
@@ -39,37 +110,59 @@ Ingest OT knowledge into ChromaDB (asset inventory, IEC 62443 controls, past inc
 python scripts/ingest_rag.py --reset
 ```
 
-## 3. Agent (OT SOC Analyst)
+### 3. Webhook Receiver
 
-Requires a `.env` file with your OpenAI (or OpenRouter) API key:
-
-```bash
-# .env
-OPENAI_API_KEY=sk-...
-OPENAI_BASE_URL=https://openrouter.ai/api/v1  # optional, for OpenRouter
-```
-
-Run the agent on a single alert:
+FastAPI server that receives alerts and triggers the agent:
 
 ```bash
-# From a JSON file
-python scripts/agent.py --alert outputs/test_write.json
-
-# Or pipe from stdin
-cat data/alerts.jsonl | head -1 | python scripts/agent.py
+uvicorn scripts.webhook_receiver:app --host 0.0.0.0 --port 8000
 ```
 
-The agent:
-1. Retrieves RAG context (asset info, IEC 62443 controls, past incidents)
-2. Calls `analyze_anomaly` — deterministic classification of the alert
-3. Calls `write_nist_incident_report` — saves `outputs/incident_{alert_id}.md`
-4. Calls `generate_suricata_rule` — saves `outputs/block_{alert_id}.rules`
-5. Prints a summary with file paths
+### 4. Agent
 
-### Outputs
+Run the agent standalone on a single alert:
 
-| File | Contents |
-|------|----------|
-| `outputs/incident_*.md` | NIST SP 800-61 incident report with affected assets, observed activity, impact, recommended actions, and RAG citations |
-| `outputs/block_*.rules` | Suricata rule targeting the specific Modbus pattern (FC 6 writes, FC 131 scans, etc.) |
+```bash
+python scripts/agent.py --alert sample_alert.json
+```
 
+---
+
+## Tests
+
+All tests are deterministic — no API key, no live ChromaDB, no network required.
+
+```bash
+python -m pytest tests/ -v
+```
+
+The test suite covers:
+
+| Test file | Tests | What it proves |
+|-----------|-------|----------------|
+| `tests/test_rag.py` | 9 | Anomaly classification (6 branches), query building (2), ChromaDB mocked retrieval (2) |
+| `tests/test_agent.py` | 16 | SID generation (3), rule validation (4), anomaly analysis logic (9) |
+
+---
+
+## Documentation
+
+| Doc | Description |
+|-----|-------------|
+| [`docs/PRD.md`](docs/PRD.md) | Full product requirements document — problem statement, vision, roadmap, success metrics |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | System architecture diagram and data flow |
+| [`docs/ANOMALY_DEFINITIONS.md`](docs/ANOMALY_DEFINITIONS.md) | Plain-language anomaly specifications with MITRE ATT&CK for ICS mappings |
+| [`docs/FEATURE_ENGINEERING.md`](docs/FEATURE_ENGINEERING.md) | Feature design — windowing, scaling, Iteration 2 results, physics rationale |
+| [`docs/AGENT_DESIGN.md`](docs/AGENT_DESIGN.md) | Agent framework choice, tool design, prompt strategy, LLM selection |
+
+---
+
+## CI/CD
+
+This repository uses GitHub Actions for continuous integration. On every push or pull request to `main`, the CI workflow:
+
+1. Sets up Python 3.11
+2. Installs dependencies from `requirements.txt`
+3. Runs all 25 tests
+
+No live services, no API keys, no GPU required in CI.
