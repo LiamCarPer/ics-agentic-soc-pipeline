@@ -6,6 +6,8 @@ An end-to-end agentic AI pipeline that acts as a Level 1 SOC Analyst for OT/ICS 
 
 [![CI](https://github.com/LiamCarPer/ics-agentic-soc-pipeline/actions/workflows/test.yml/badge.svg)](https://github.com/LiamCarPer/ics-agentic-soc-pipeline/actions/workflows/test.yml)
 
+![Demo](demo.gif)
+
 ---
 
 ## Architecture
