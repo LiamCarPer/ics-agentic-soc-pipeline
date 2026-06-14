@@ -32,7 +32,9 @@ def _classify_anomaly(alert: dict) -> str:
     tank_mean = summary.get("tank_level_mean", 0)
 
     if has_write == 1 and tank_mean < 10:
-        return "cavitation risk pump damage low tank level rapid drop unauthorized write"
+        return (
+            "cavitation risk pump damage low tank level rapid drop unauthorized write"
+        )
     if has_write == 1:
         return "unauthorized Modbus write command function code 6 privilege escalation"
     if 131 in fcs and tank_max > 80:
@@ -82,7 +84,9 @@ def retrieve_context(alert: dict) -> str:
     )
 
     sections = {
-        "ASSET INFO": asset_results["documents"][0] if asset_results["documents"] else [],
+        "ASSET INFO": asset_results["documents"][0]
+        if asset_results["documents"]
+        else [],
         "IEC 62443 CONTROLS": control_results["documents"][0]
         if control_results["documents"]
         else [],

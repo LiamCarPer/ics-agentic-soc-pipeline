@@ -34,20 +34,19 @@ Register map:
 import argparse
 import csv
 import json
-import os
 import queue
 import random
 import sys
 import threading
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
 
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class Config:
@@ -97,6 +96,7 @@ ANOMALY_LABELS = {
 # State
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class PlcState:
     tank_level: float = 45.0
@@ -106,6 +106,7 @@ class PlcState:
 # ---------------------------------------------------------------------------
 # Physics Engine
 # ---------------------------------------------------------------------------
+
 
 class PhysicsEngine:
     """Bounded random walk with valve logic for a single PLC."""
@@ -119,12 +120,16 @@ class PhysicsEngine:
         valve = state.valve_state
 
         if valve == 0:
-            step = self.rng.uniform(self.config.fill_rate_min, self.config.fill_rate_max)
+            step = self.rng.uniform(
+                self.config.fill_rate_min, self.config.fill_rate_max
+            )
             tank += step
             reversion = (self.config.valve_close_threshold - tank) * 0.05
             tank += reversion
         else:
-            step = self.rng.uniform(self.config.drain_rate_min, self.config.drain_rate_max)
+            step = self.rng.uniform(
+                self.config.drain_rate_min, self.config.drain_rate_max
+            )
             tank -= step
             reversion = (self.config.valve_open_threshold - tank) * 0.05
             tank += reversion
@@ -142,6 +147,7 @@ class PhysicsEngine:
 # ---------------------------------------------------------------------------
 # Anomaly Injectors
 # ---------------------------------------------------------------------------
+
 
 class AnomalyInjector:
     """Applies anomaly effects to telemetry rows."""
@@ -212,6 +218,7 @@ class AnomalyInjector:
 # CSV Writers
 # ---------------------------------------------------------------------------
 
+
 class DataWriter:
     def __init__(self, output_dir: str):
         self.output_dir = Path(output_dir)
@@ -228,15 +235,28 @@ class DataWriter:
         self.annotations_fh = open(self.annotations_path, "w", newline="")
 
         telemetry_fields = [
-            "timestamp", "plc_id", "plc_ip",
-            "reg_0_inlet_valve", "reg_1", "reg_2", "reg_3", "reg_4",
-            "reg_5_tank_level", "source_ip", "function_code", "function_name",
+            "timestamp",
+            "plc_id",
+            "plc_ip",
+            "reg_0_inlet_valve",
+            "reg_1",
+            "reg_2",
+            "reg_3",
+            "reg_4",
+            "reg_5_tank_level",
+            "source_ip",
+            "function_code",
+            "function_name",
         ]
-        self.telemetry_writer = csv.DictWriter(self.telemetry_fh, fieldnames=telemetry_fields)
+        self.telemetry_writer = csv.DictWriter(
+            self.telemetry_fh, fieldnames=telemetry_fields
+        )
         self.telemetry_writer.writeheader()
 
         annotation_fields = ["start_time", "end_time", "anomaly_type", "description"]
-        self.annotations_writer = csv.DictWriter(self.annotations_fh, fieldnames=annotation_fields)
+        self.annotations_writer = csv.DictWriter(
+            self.annotations_fh, fieldnames=annotation_fields
+        )
         self.annotations_writer.writeheader()
 
         return self
@@ -251,19 +271,24 @@ class DataWriter:
         self.telemetry_writer.writerow(row)
         self.telemetry_fh.flush()
 
-    def write_annotation(self, start: str, end: str, anomaly_type: str, description: str):
-        self.annotations_writer.writerow({
-            "start_time": start,
-            "end_time": end,
-            "anomaly_type": anomaly_type,
-            "description": description,
-        })
+    def write_annotation(
+        self, start: str, end: str, anomaly_type: str, description: str
+    ):
+        self.annotations_writer.writerow(
+            {
+                "start_time": start,
+                "end_time": end,
+                "anomaly_type": anomaly_type,
+                "description": description,
+            }
+        )
         self.annotations_fh.flush()
 
 
 # ---------------------------------------------------------------------------
 # Keyboard Listener (interactive mode)
 # ---------------------------------------------------------------------------
+
 
 class KeyboardListener:
     """Reads stdin in a background thread and puts commands on a queue."""
@@ -328,6 +353,7 @@ ANOMALY_DESCRIPTIONS = {
 # Schedule Loader
 # ---------------------------------------------------------------------------
 
+
 def load_schedule(path: str) -> list[dict]:
     with open(path) as f:
         data = json.load(f)
@@ -347,6 +373,7 @@ def load_schedule(path: str) -> list[dict]:
 # ---------------------------------------------------------------------------
 # Row Builder
 # ---------------------------------------------------------------------------
+
 
 def build_row(
     timestamp: str,
@@ -376,32 +403,43 @@ def build_row(
 # Main
 # ---------------------------------------------------------------------------
 
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Generate realistic OT telemetry for ML model training."
     )
     parser.add_argument(
-        "--duration", type=int, default=1800,
+        "--duration",
+        type=int,
+        default=1800,
         help="Run duration in seconds (default: 1800 = 30 min)",
     )
     parser.add_argument(
-        "--interactive", action="store_true",
+        "--interactive",
+        action="store_true",
         help="Enable keyboard-based anomaly injection",
     )
     parser.add_argument(
-        "--schedule", type=str, default=None,
+        "--schedule",
+        type=str,
+        default=None,
         help="JSON schedule file for automated anomaly injection",
     )
     parser.add_argument(
-        "--seed", type=int, default=42,
+        "--seed",
+        type=int,
+        default=42,
         help="Random seed for reproducibility (default: 42)",
     )
     parser.add_argument(
-        "--output", type=str, default="data",
+        "--output",
+        type=str,
+        default="data",
         help="Output directory (default: data/)",
     )
     parser.add_argument(
-        "--fast", action="store_true",
+        "--fast",
+        action="store_true",
         help="Generate data as fast as possible (skip real-time sleep)",
     )
     return parser.parse_args()
@@ -444,7 +482,9 @@ def main():
 
     anomaly_start_times: dict[str, str] = {}
 
-    print(f"Generating {total_ticks} rows ({args.duration}s at {config.poll_interval}s intervals)...")
+    print(
+        f"Generating {total_ticks} rows ({args.duration}s at {config.poll_interval}s intervals)..."
+    )
     print(f"Output dir: {config.output_dir}/")
     print(f"Interactive: {interactive_mode}  |  Schedule: {bool(schedule)}")
 
@@ -470,15 +510,13 @@ def main():
                     if anomaly_type is None:
                         print(f"Unknown command: {cmd}. Press 'h' for help.")
                         continue
-                    if anomaly_type is None:
-                        for at in list(injector.active.keys()):
-                            if at not in CMDS:
-                                injector.set_active(at, False)
                     else:
                         toggling_on = not injector.is_active(anomaly_type)
                         injector.set_active(anomaly_type, toggling_on)
                         label = "ON" if toggling_on else "OFF"
-                        print(f"  [{label}] {ANOMALY_DESCRIPTIONS.get(anomaly_type, anomaly_type)}")
+                        print(
+                            f"  [{label}] {ANOMALY_DESCRIPTIONS.get(anomaly_type, anomaly_type)}"
+                        )
 
             # Normal resets: "0" handler already covered above — toggle off all
             if not cmd_queue.empty():
@@ -492,7 +530,9 @@ def main():
                     injector.set_active(atype, True)
                     duration = entry.get("duration", 10)
                     schedule_stop_times[atype] = elapsed + duration
-                    print(f"  [SCHEDULE] {ANOMALY_DESCRIPTIONS.get(atype, atype)} (duration={duration}s)")
+                    print(
+                        f"  [SCHEDULE] {ANOMALY_DESCRIPTIONS.get(atype, atype)} (duration={duration}s)"
+                    )
                     anomaly_start_times.setdefault(atype, tick_dt)
 
             # Auto-stop scheduled anomalies when duration expires
@@ -513,7 +553,9 @@ def main():
                 cycle_index = tick % 3
                 cic = [config.plc_ip, config.treatment_ip, config.distribution_ip]
                 config_override["plc_ip"] = cic[cycle_index]
-                config_override["plc_id"] = f"plc_{['intake', 'treatment', 'distribution'][cycle_index]}"
+                config_override["plc_id"] = (
+                    f"plc_{['intake', 'treatment', 'distribution'][cycle_index]}"
+                )
             else:
                 config_override["plc_ip"] = config.plc_ip
                 config_override["plc_id"] = config.plc_id
@@ -548,7 +590,11 @@ def main():
                 time.sleep(config.poll_interval)
 
         # --- Flush remaining annotations at end of run ---
-        end_ts = tick_timestamp(total_ticks - 1) if total_ticks > 0 else datetime.now(timezone.utc).isoformat()
+        end_ts = (
+            tick_timestamp(total_ticks - 1)
+            if total_ticks > 0
+            else datetime.now(timezone.utc).isoformat()
+        )
         for atype, a_start in anomaly_start_times.items():
             writer.write_annotation(
                 start=a_start,

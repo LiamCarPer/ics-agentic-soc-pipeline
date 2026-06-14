@@ -22,5 +22,14 @@ dependencies = [
     "uvicorn>=0.34.0",
 ]
 
+[tool.ruff]
+exclude = ["notebooks/*.ipynb", "venv"]
+
+[tool.ruff.lint]
+per-file-ignores = { "scripts/*.py" = ["E402"], "tests/*.py" = ["E402"] }
+
+[tool.ruff.format]
+quote-style = "double"
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]

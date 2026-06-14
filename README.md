@@ -40,6 +40,9 @@ Telemetry CSV → detect_anomalies.py → alerts.jsonl
 
 ### Setup
 
+Choose one:
+
+**Local (venv):**
 ```bash
 git clone https://github.com/LiamCarPer/ics-agentic-soc-pipeline.git
 cd ics-agentic-soc-pipeline
@@ -48,10 +51,19 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
+**Docker:**
+```bash
+git clone https://github.com/LiamCarPer/ics-agentic-soc-pipeline.git
+cd ics-agentic-soc-pipeline
+docker compose up -d
+```
+
 ### Environment
 
 ```bash
-# .env
+# .env (copy from .env.example)
+cp .env.example .env
+# Then edit .env with your API key
 OPENAI_API_KEY=sk-...
 # Optional: for OpenRouter or Ollama
 OPENAI_BASE_URL=https://openrouter.ai/api/v1
@@ -157,6 +169,25 @@ The test suite covers:
 |-----------|-------|----------------|
 | `tests/test_rag.py` | 9 | Anomaly classification (6 branches), query building (2), ChromaDB mocked retrieval (2) |
 | `tests/test_agent.py` | 16 | SID generation (3), rule validation (4), anomaly analysis logic (9) |
+| `tests/test_webhook.py` | 6 | Webhook success (1), agent error (1), invalid payloads (3), list empty (1) |
+
+---
+
+## Tooling
+
+This project uses modern Python tooling:
+
+| Tool | Purpose |
+|------|---------|
+| [Ruff](https://docs.astral.sh/ruff/) | Linter and formatter (CI-gated) |
+| [pre-commit](https://pre-commit.com/) | Git hooks — runs Ruff on every commit |
+
+```bash
+pip install pre-commit && pre-commit install
+pre-commit run --all-files   # optional: check everything once
+```
+
+The CI workflow also runs `pre-commit run --all-files` as a lint gate.
 
 ---
 
@@ -178,6 +209,7 @@ This repository uses GitHub Actions for continuous integration. On every push or
 
 1. Sets up Python 3.11
 2. Installs dependencies from `requirements.txt`
-3. Runs all 25 tests
+3. Lints with pre-commit (Ruff)
+4. Runs all 31 tests
 
 No live services, no API keys, no GPU required in CI.

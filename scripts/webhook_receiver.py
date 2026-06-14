@@ -44,6 +44,7 @@ _received_alerts: List[dict] = []
 # Pydantic models
 # ---------------------------------------------------------------------------
 
+
 class WindowSummary(BaseModel):
     tank_level_mean: float
     tank_level_max: float
@@ -54,15 +55,23 @@ class WindowSummary(BaseModel):
 
 class AlertPayload(BaseModel):
     alert_id: str = Field(..., description="Unique UUID for this alert")
-    timestamp: str = Field(..., description="ISO 8601 timestamp of the last row in the window")
+    timestamp: str = Field(
+        ..., description="ISO 8601 timestamp of the last row in the window"
+    )
     plc_id: str = Field(..., description="PLC identifier")
-    anomaly_score: float = Field(..., description="decision_function value (more negative = more anomalous)")
+    anomaly_score: float = Field(
+        ..., description="decision_function value (more negative = more anomalous)"
+    )
     window_summary: WindowSummary
     raw_data: List[dict]
 
     plc_ip: Optional[str] = Field(None, description="IP address of the PLC")
-    window_start: Optional[str] = Field(None, description="ISO 8601 timestamp of the first row")
-    window_end: Optional[str] = Field(None, description="ISO 8601 timestamp of the last row")
+    window_start: Optional[str] = Field(
+        None, description="ISO 8601 timestamp of the first row"
+    )
+    window_end: Optional[str] = Field(
+        None, description="ISO 8601 timestamp of the last row"
+    )
 
     @field_validator("alert_id")
     @classmethod
@@ -76,6 +85,7 @@ class AlertPayload(BaseModel):
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
+
 
 @app.post("/alert", status_code=202)
 def handle_alert(alert: AlertPayload):

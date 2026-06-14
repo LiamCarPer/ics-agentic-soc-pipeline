@@ -56,19 +56,21 @@ SAFETY FIRST: You are responsible for protecting physical infrastructure. Always
 
 
 def _sid(alert_id: str) -> int:
-    return 1_000_000 + (int(hashlib.sha256(alert_id.encode()).hexdigest()[:8], 16) % 9_000_000)
+    return 1_000_000 + (
+        int(hashlib.sha256(alert_id.encode()).hexdigest()[:8], 16) % 9_000_000
+    )
 
 
 def _validate_rule(rule: str) -> str:
-    if not re.match(r'alert\s+\w+\s+.*?\(', rule, re.DOTALL):
+    if not re.match(r"alert\s+\w+\s+.*?\(", rule, re.DOTALL):
         return "FAILED: rule must match 'alert <protocol> ... (...)' pattern"
-    if 'sid:' not in rule:
+    if "sid:" not in rule:
         return "FAILED: rule must contain sid:"
-    if 'classtype:' not in rule:
+    if "classtype:" not in rule:
         return "FAILED: rule must contain classtype:"
-    if 'msg:' not in rule:
+    if "msg:" not in rule:
         return "FAILED: rule must contain msg:"
-    if 'modbus' not in rule:
+    if "modbus" not in rule:
         return "FAILED: rule must use modbus protocol keyword"
     return "PASSED"
 
@@ -246,7 +248,7 @@ An anomaly was detected on PLC at {plc_ip} (alert ID: {alert_id}). The ML anomal
 |-------|-----------|------|
 | plc_intake | {plc_ip} | Water intake control, Level 1 Control Zone |
 
-**Source IPs Observed During Window:** {', '.join(source_ips)}
+**Source IPs Observed During Window:** {", ".join(source_ips)}
 
 ---
 
@@ -256,8 +258,8 @@ An anomaly was detected on PLC at {plc_ip} (alert ID: {alert_id}). The ML anomal
 - **Function Codes:** {function_codes}
 - **Tank Level (mean):** {tank_level_mean}%
 - **Tank Level (max):** {tank_level_max}%
-- **Write FC Observed:** {'Yes' if 6 in function_codes else 'No'}
-- **Exception Responses (FC 131):** {'Yes' if 131 in function_codes else 'No'}
+- **Write FC Observed:** {"Yes" if 6 in function_codes else "No"}
+- **Exception Responses (FC 131):** {"Yes" if 131 in function_codes else "No"}
 
 ---
 
@@ -371,7 +373,9 @@ def run_agent(alert: dict) -> dict:
     agent = create_agent(model, tools, system_prompt=SYSTEM_PROMPT)
 
     alert_str = json.dumps(alert, indent=2, default=str)
-    user_msg = f"## Alert Data\n```json\n{alert_str}\n```\n\n## RAG Context\n{rag_context}"
+    user_msg = (
+        f"## Alert Data\n```json\n{alert_str}\n```\n\n## RAG Context\n{rag_context}"
+    )
 
     print(f"Invoking agent for alert {alert_id[:8]}...", file=sys.stderr)
     result = agent.invoke(

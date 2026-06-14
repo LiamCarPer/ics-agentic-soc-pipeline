@@ -13,7 +13,6 @@ Steps:
 """
 
 import argparse
-import re
 import sys
 from pathlib import Path
 
@@ -60,9 +59,7 @@ def chunk_markdown(text: str, source_file: str):
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Ingest RAG documents into ChromaDB."
-    )
+    parser = argparse.ArgumentParser(description="Ingest RAG documents into ChromaDB.")
     parser.add_argument(
         "--reset",
         action="store_true",
@@ -107,7 +104,10 @@ def main():
 
     SOURCE_TYPE_MAP = {
         "asset_inventory": ("asset", "plc ip zone firmware asset ot device"),
-        "iec62443_controls": ("control", "iec 62443 security control standard requirement"),
+        "iec62443_controls": (
+            "control",
+            "iec 62443 security control standard requirement",
+        ),
         "past_incidents": ("incident", "past incident report anomaly attack response"),
     }
 
@@ -140,7 +140,9 @@ def main():
         f"'{COLLECTION_NAME}' (ChromaDB at {CHROMA_DIR})"
     )
 
-    result = collection.query(query_texts=["plc intake unauthorized modbus write"], n_results=3)
+    result = collection.query(
+        query_texts=["plc intake unauthorized modbus write"], n_results=3
+    )
     print("\nSanity check query 'plc intake unauthorized modbus write':")
     for doc in result["documents"][0]:
         print(f"  - {doc[:100]}...")

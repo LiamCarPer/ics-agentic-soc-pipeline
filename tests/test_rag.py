@@ -17,6 +17,7 @@ from src.rag import _classify_anomaly, _build_query, retrieve_context
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def write_alert():
     return {
@@ -48,6 +49,7 @@ def cavitation_alert():
 # ---------------------------------------------------------------------------
 # _classify_anomaly
 # ---------------------------------------------------------------------------
+
 
 def test_classify_anomaly_write_with_cavitation():
     alert = {
@@ -144,6 +146,7 @@ def test_classify_anomaly_generic():
 # _build_query
 # ---------------------------------------------------------------------------
 
+
 def test_build_query_includes_expected_fields(write_alert):
     query = _build_query(write_alert)
     assert "172.21.0.10" in query
@@ -173,6 +176,7 @@ def test_build_query_no_source_ips():
 # retrieve_context — mocked
 # ---------------------------------------------------------------------------
 
+
 def _make_mock_query_result(doc_texts):
     return {
         "documents": [doc_texts],
@@ -188,11 +192,17 @@ def test_retrieve_context_returns_all_sections_with_mock_data(write_alert):
     def side_effect(query_texts, n_results, where):
         st = where["source_type"]
         if st == "asset":
-            return _make_mock_query_result(["## plc-intake (172.21.0.10)\nIntake PLC description"])
+            return _make_mock_query_result(
+                ["## plc-intake (172.21.0.10)\nIntake PLC description"]
+            )
         elif st == "control":
-            return _make_mock_query_result(["## Network Segmentation (SR 5.1)\nZone boundary"])
+            return _make_mock_query_result(
+                ["## Network Segmentation (SR 5.1)\nZone boundary"]
+            )
         else:
-            return _make_mock_query_result(["## Incident 2024-11-12: Unauthorized Write\nWrite from 172.24.0.10"])
+            return _make_mock_query_result(
+                ["## Incident 2024-11-12: Unauthorized Write\nWrite from 172.24.0.10"]
+            )
 
     mock_collection.query.side_effect = side_effect
 

@@ -2,9 +2,7 @@
 
 import sys
 from pathlib import Path
-from unittest.mock import patch
 
-import pytest
 
 _proj_root = Path(__file__).resolve().parent.parent
 if str(_proj_root) not in sys.path:
@@ -19,6 +17,7 @@ from scripts.agent import analyze_anomaly
 # ---------------------------------------------------------------------------
 # _sid
 # ---------------------------------------------------------------------------
+
 
 def test_sid_in_range():
     sid = _sid("e8358fb5-101a-43ba-93cd-8f9b95e30ac6")
@@ -40,6 +39,7 @@ def test_sid_different_inputs():
 # ---------------------------------------------------------------------------
 # _validate_rule
 # ---------------------------------------------------------------------------
+
 
 def test_validate_rule_valid():
     rule = """alert modbus $EXTERNAL_NET any -> $HOME_NET 502 (
