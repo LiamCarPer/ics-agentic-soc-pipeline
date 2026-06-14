@@ -2,9 +2,12 @@
 
 **ML anomaly detection → RAG enrichment → LLM agent (NIST reports + Suricata rules).**
 
-An end-to-end agentic AI pipeline that acts as a Level 1 SOC Analyst for OT/ICS environments. Built for the [OT-Security-Lab](https://github.com/LiamCarPer/ot-security-lab) water treatment simulation.
+I built this pipeline to demonstrate how a Level 1 SOC Analyst can be automated for OT/ICS environments using ML anomaly detection, RAG-augmented knowledge retrieval, and a LangChain agent. It ingests telemetry from the [OT-Security-Lab](https://github.com/LiamCarPer/ot-security-lab) water treatment simulation, detects operational anomalies, retrieves relevant OT context, and generates NIST SP 800-61 incident reports with Suricata detection rules — all without human intervention.
+
+> **Why?** ICS security teams are understaffed and OT alerts are high-noise. This system shows that agentic AI can handle Level 1 triage, produce analyst-quality reports, and generate actionable detection content in seconds.
 
 [![CI](https://github.com/LiamCarPer/ics-agentic-soc-pipeline/actions/workflows/test.yml/badge.svg)](https://github.com/LiamCarPer/ics-agentic-soc-pipeline/actions/workflows/test.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 ![Demo](demo.gif)
 
@@ -54,6 +57,8 @@ OPENAI_API_KEY=sk-...
 OPENAI_BASE_URL=https://openrouter.ai/api/v1
 ```
 
+> **Security:** `.env` is in `.gitignore`. Never commit your real API key. The repo ships with no keys baked in — all tests are deterministic and don't need an API key.
+
 ### Ingest Knowledge
 
 ```bash
@@ -82,6 +87,14 @@ The receiver logs `PUBLISH alert_id=...`, triggers the agent, and returns the in
 |------|----------|
 | `outputs/incident_*.md` | NIST SP 800-61 incident report with affected assets, observed activity, impact assessment, and RAG citations |
 | `outputs/block_*.rules` | Suricata rule targeting the specific Modbus pattern (FC 6 writes, FC 131 scans, etc.) |
+
+### Apply the Suricata Rule
+
+```bash
+suricata -S outputs/block_e8358fb5-*.rules -i eth0
+# Or merge into your production rules:
+cat outputs/block_*.rules >> /etc/suricata/rules/local.rules
+```
 
 ---
 
