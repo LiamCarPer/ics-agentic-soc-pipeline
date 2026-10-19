@@ -1,0 +1,21 @@
+{
+  "documents": {
+    "asset_inventory.md": {
+      "bytes": 2102,
+      "sha256": "06bbfbd826c4d0b45b3eb35afe383069f042c7a9d3c094a45e0a986c84f9d4e0",
+      "source": "ot-soc-knowledge-base"
+    },
+    "iec62443_controls.md": {
+      "bytes": 3853,
+      "sha256": "aa74e80205f9b155ef87fa0fb2839ebc9b1b6bbe97d23c841eb2988e1b9c401f",
+      "source": "ot-soc-knowledge-base"
+    },
+    "past_incidents.md": {
+      "bytes": 2144,
+      "sha256": "4c9a61c8fa22871f62d98757a9431d60b12264e279174a4c7040fbf08753ffaa",
+      "source": "ot-soc-knowledge-base"
+    }
+  },
+  "generated_at": "2026-10-19T17:56:13.345684+00:00",
+  "manifest_version": 1
+}

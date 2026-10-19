@@ -1,0 +1,28 @@
+{
+  "artifacts": {
+    "isolation_forest.joblib": {
+      "bytes": 545096,
+      "feature_set_sha256": "baebbbe1a48de3bda5410b8e0c1b1442be1d90598030a9f8b5356ab188f89e2b",
+      "hyperparameters": {
+        "contamination": 0.01,
+        "n_estimators": 100,
+        "random_state": 42
+      },
+      "role": "anomaly-detector",
+      "sha256": "c5503b79d39aa1b924f7ffa956a727945d0e49abb8e2667213600093f5819631",
+      "trained_with_sklearn": "1.8.0",
+      "training_data": "data/train/telemetry.csv",
+      "training_data_sha256": "4ad8671cd726dd3ddc9b2592452a62bfc9d88c00c578483f1601c103787331da"
+    },
+    "scaler.joblib": {
+      "bytes": 1375,
+      "feature_set_sha256": "baebbbe1a48de3bda5410b8e0c1b1442be1d90598030a9f8b5356ab188f89e2b",
+      "role": "preprocessor",
+      "sha256": "b7d903402d856a37ade506d689312577d268dbfa35b888c7fbe06f9bdab85641",
+      "trained_with_sklearn": "1.8.0",
+      "training_data_sha256": "4ad8671cd726dd3ddc9b2592452a62bfc9d88c00c578483f1601c103787331da"
+    }
+  },
+  "generated_at": "2026-10-19T17:56:13.344789+00:00",
+  "manifest_version": 1
+}
