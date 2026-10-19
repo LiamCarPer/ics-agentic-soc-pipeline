@@ -1,0 +1,6 @@
+# Security and development tooling. Not required at runtime.
+bandit>=1.7,<2
+detect-secrets>=1.5,<2
+pip-audit>=2.7,<3
+pre-commit>=3.7,<5
+ruff==0.11.0

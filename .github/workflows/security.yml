@@ -1,0 +1,78 @@
+name: Security
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  ai-security:
+    name: AI/ML security checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Verify model and RAG artifact manifests
+        run: python scripts/verify_artifacts.py
+
+      - name: Run the deterministic AI red-team suite
+        run: python scripts/redteam_agent.py
+
+      - name: Run ML evasion and poisoning evaluations
+        run: |
+          python security/evals/evasion_experiment.py --output /tmp/evasion_results.md
+          python security/evals/poisoning_experiment.py --output /tmp/poisoning_results.md
+
+      - name: Run the test suite
+        run: python -m pytest tests/ -q
+
+      - name: Bandit (medium+)
+        run: bandit -r src scripts -ll
+
+      - name: Secret scan
+        run: |
+          detect-secrets scan --baseline .secrets.baseline \
+            --exclude-files 'venv/.*' \
+            --exclude-files 'data/chromadb/.*' \
+            --exclude-files 'notebooks/.*' \
+            --exclude-files 'demo.gif' \
+            --exclude-files '\.secrets\.baseline'
+
+  dependency-audit:
+    name: Dependency audit (non-blocking)
+    runs-on: ubuntu-latest
+    # Upstream advisories should be visible without blocking feature PRs.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: |
+          python -m pip install --upgrade pip pip-audit
+          pip-audit -r requirements.txt
+
+  dependency-review:
+    name: Dependency review
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/dependency-review-action@v4

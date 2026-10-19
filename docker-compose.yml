@@ -1,9 +1,20 @@
 services:
   ics-agentic-soc:
     build: .
+    # Bind to localhost only. Use a reverse proxy/mTLS for anything shared.
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     env_file:
       - .env
     volumes:
       - ./outputs:/app/outputs
+    # Match the host UID/GID so the bind-mounted outputs directory is writable.
+    user: "${UID:-1000}:${GID:-1000}"
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    restart: unless-stopped
