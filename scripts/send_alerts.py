@@ -9,6 +9,7 @@ Usage:
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -40,6 +41,10 @@ def main():
 
     successes = 0
     failures = 0
+    headers = {}
+    api_key = os.environ.get("WEBHOOK_API_KEY")
+    if api_key:
+        headers["X-API-Key"] = api_key
 
     with open(input_path) as f:
         for line_num, line in enumerate(f, start=1):
@@ -49,8 +54,10 @@ def main():
 
             try:
                 alert = json.loads(line)
-                resp = requests.post(args.endpoint, json=alert, timeout=10)
-                if resp.status_code == 202:
+                resp = requests.post(
+                    args.endpoint, json=alert, timeout=10, headers=headers
+                )
+                if resp.status_code in (200, 202):
                     successes += 1
                 else:
                     failures += 1

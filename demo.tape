@@ -6,8 +6,8 @@ Set Width 1000
 Set Height 600
 Set Framerate 10
 
-# 1. Start webhook receiver via venv
-Type "venv/bin/uvicorn scripts.webhook_receiver:app --host 0.0.0.0 --port 8000 &"
+# 1. Start webhook receiver via venv (auth disabled for the local demo)
+Type "WEBHOOK_API_KEY= venv/bin/uvicorn scripts.webhook_receiver:app --host 127.0.0.1 --port 8000 &"
 Enter
 Sleep 3s
 
