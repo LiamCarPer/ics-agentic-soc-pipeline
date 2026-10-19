@@ -116,7 +116,7 @@ rate_of_change_last_3_reads: +15% (abnormal rise despite valve being OPEN)
 
 **Description:** Rapid Modbus read requests from an IP not in the asset inventory, targeting multiple registers or multiple PLCs in quick succession.
 
-**MITRE Reference:** T0846 (Brute Force / Scanning)
+**MITRE Reference:** T0846 (Remote System Discovery), T0836 (Modify Parameter)
 
 **Detection logic:**
 - More than 5 Modbus exception responses (FC 131) from a single source IP within a 60-second sliding window

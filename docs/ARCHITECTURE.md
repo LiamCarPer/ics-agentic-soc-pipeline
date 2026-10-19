@@ -63,3 +63,15 @@
 6. Agent writes analysis, NIST incident report, and Suricata `.rules` file
 7. Outputs logged to Loki via Promtail → visible in Grafana SOC dashboard
 8. `.rules` file staged for review before deployment
+
+### Security boundary
+
+The shipped implementation treats the LLM as **untrusted**. Alert and RAG
+content are delimited as data; tools fetch the validated alert/context by
+`alert_id` and derive network identifiers themselves; file writes are
+path-confined; rules are alert-only; model and RAG artifacts are SHA-256-pinned
+before use; every run is audited. The planner's SQS/live-collector/Grafana
+components are roadmap, not part of the security boundary today.
+
+See [`docs/AI_SECURITY.md`](AI_SECURITY.md) for the threat model and residual
+risks, and [`docs/MODEL_CARD.md`](MODEL_CARD.md) for the detector's limits.

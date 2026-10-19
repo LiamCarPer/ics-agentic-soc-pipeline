@@ -48,7 +48,7 @@ The raw function_code column is one-hot encoded via counts per window. A normal 
 
 FC 16 (WRITE_MULTIPLE) is not present in the generated data but would follow the same pattern.
 
-`has_write_fc` is an explicit rarity flag. In training data, no window ever contains a write, so `has_write_fc=0` for every row. An anomaly window with an unauthorized write immediately produces `has_write_fc=1`, making it trivially detectable regardless of how few write windows exist.
+`has_write_fc` is an explicit rarity flag. In training data, no window ever contains a write, so `has_write_fc=0` for every row. In feature space a write window is separable, but the committed model never splits on this feature because it is constant in training (see §8). Do not assume the model detects writes.
 
 ### Source IP — 1 feature
 
@@ -161,3 +161,25 @@ def build_windows(df, window_size=6, stride=1):
 - **False positive rate is 24%** — 56 of 235 test windows flagged incorrectly. These are normal tank/valve oscillations near the training distribution boundary.
 
 **Next refinement:** Replace `contamination=0.01` with manual thresholding on `decision_function`. A threshold of -0.03 (used as decision boundary) would flag only the 13 true anomaly windows while eliminating all 56 false positives, giving Precision=1.0, Recall=0.65, F1=0.787. This requires tuning the threshold on a validation set.
+
+**Correction (2026-10):** The threshold claim above does not reproduce. With the committed artifacts, `-0.03` flags 50 windows and gives precision 0.220 / recall 0.550; the best precision over all thresholds is 0.229. `predict()` gives precision 0.188 / recall 0.650 / F1 0.292. The "13" is `predict()`'s true-positive count, not a threshold result. See `docs/MODEL_CARD.md` and the private reproducibility audit.
+
+## 8. Post-hoc security finding — dead features
+
+The committed model does not use the valve, function-code or source-IP features. Those columns are constant in the normal-only training set, so StandardScaler leaves them at unit scale and the Isolation Forest never splits on them. Tree inspection across the 100 estimators shows:
+
+| Group | Trees using any feature in the group (of 100) |
+| :--- | --: |
+| Tank level (6 features) | 99–100 each |
+| Valve (4 features) | **0** |
+| Function codes (4 features) | **0** |
+| Source IP (1 feature) | **0** |
+
+Consequences:
+
+- The model is effectively a tank-level anomaly detector.
+- It misses overfill (0/4) and unauthorized writes (0/3).
+- Low-rate scans evade; the 5/5 scanning result in the test set is a tank-pattern coincidence, not Modbus awareness.
+- The `has_write_fc`/`is_known_good_ip` "trivially detectable" reasoning earlier in this document does not hold for the artifact.
+
+Fix: train with variation in those features (authorized writes, background scans, multiple sources), add explicit rule-based detections for the missing classes, and add feature-usage tests so a constant feature cannot silently enter the model again. Evidence: `security/evals/evasion_results.md` and `docs/MODEL_CARD.md`.
