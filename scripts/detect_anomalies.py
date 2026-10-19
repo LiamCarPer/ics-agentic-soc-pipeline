@@ -35,6 +35,7 @@ if str(_proj_root) not in sys.path:
 import pandas as pd
 
 from src.features import build_windowed_features
+from src.security.artifacts import verify_model_artifacts
 
 PLC_ID = "plc_intake"
 PLC_IP = "172.21.0.10"
@@ -50,8 +51,33 @@ def load_model_and_scaler(model_path: Path, scaler_path: Path):
         print(f"Error: scaler file not found: {scaler_path}", file=sys.stderr)
         sys.exit(1)
 
-    model = joblib.load(model_path)
-    scaler = joblib.load(scaler_path)
+    manifest_path = model_path.parent / "manifest.json"
+    if (
+        manifest_path.is_file()
+        and model_path.name == "isolation_forest.joblib"
+        and scaler_path.name == "scaler.joblib"
+    ):
+        errors = verify_model_artifacts(
+            base_dir=model_path.parent, manifest_path=manifest_path
+        )
+        if errors:
+            for error in errors:
+                print(f"Error: {error}", file=sys.stderr)
+            print(
+                "Refusing to load unverified model artifacts. "
+                "Retrain or restore the files, then regenerate the manifest.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+    else:
+        print(
+            "Warning: model manifest not verified (custom paths or missing manifest).",
+            file=sys.stderr,
+        )
+
+    # Integrity is checked above; joblib/pickle remains a trusted-artifact format.
+    model = joblib.load(model_path)  # nosec B301
+    scaler = joblib.load(scaler_path)  # nosec B301
     return model, scaler
 
 

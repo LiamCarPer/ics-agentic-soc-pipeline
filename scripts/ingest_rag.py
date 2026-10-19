@@ -3,13 +3,15 @@ ingest_rag.py — Load, chunk, embed, and store RAG documents into ChromaDB.
 
 Usage:
     python scripts/ingest_rag.py
-    python scripts/ingest_rag.py --reset   # Rebuild from scratch
+    python scripts/ingest_rag.py --reset          # Rebuild from scratch
+    python scripts/ingest_rag.py --update-manifest
+    python scripts/ingest_rag.py --allow-unverified   # Local development only
 
-Steps:
-    1. Read all markdown files from data/rag_documents/
-    2. Split on ## headings to produce chunks
-    3. Embed each chunk with all-MiniLM-L6-v2
-    4. Store in ChromaDB collection "ot_soc_knowledge"
+Security:
+    The knowledge base is a supply-chain input. Every document is pinned in
+    data/rag_documents/manifest.json by SHA-256 and verified before ingestion.
+    Unknown or modified documents fail closed. Instruction-like text is flagged
+    for review (a heuristic, not a prompt-injection control).
 """
 
 import argparse
@@ -20,11 +22,32 @@ import chromadb
 from chromadb.errors import NotFoundError
 from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction
 
-_PROJECT_ROOT = Path(__file__).resolve().parent.parent
-RAG_DIR = _PROJECT_ROOT / "data" / "rag_documents"
-CHROMA_DIR = _PROJECT_ROOT / "data" / "chromadb"
+_proj_root = Path(__file__).resolve().parent.parent
+if str(_proj_root) not in sys.path:
+    sys.path.insert(0, str(_proj_root))
+
+from src.security.artifacts import (  # noqa: E402
+    build_manifest,
+    sha256_file,
+    verify_rag_documents,
+    write_manifest,
+)
+from src.security.sanitize import detect_instruction_patterns  # noqa: E402
+
+RAG_DIR = _proj_root / "data" / "rag_documents"
+CHROMA_DIR = _proj_root / "data" / "chromadb"
+MANIFEST_PATH = RAG_DIR / "manifest.json"
 COLLECTION_NAME = "ot_soc_knowledge"
 EMBEDDING_MODEL = "all-MiniLM-L6-v2"
+
+SOURCE_TYPE_MAP = {
+    "asset_inventory": ("asset", "plc ip zone firmware asset ot device"),
+    "iec62443_controls": (
+        "control",
+        "iec 62443 security control standard requirement",
+    ),
+    "past_incidents": ("incident", "past incident report anomaly attack response"),
+}
 
 
 def chunk_markdown(text: str, source_file: str):
@@ -58,6 +81,47 @@ def chunk_markdown(text: str, source_file: str):
     return chunks
 
 
+def update_manifest() -> None:
+    md_files = sorted(RAG_DIR.glob("*.md"))
+    manifest = build_manifest(
+        RAG_DIR, "documents", names=[path.name for path in md_files]
+    )
+    for path in md_files:
+        source_type, _ = SOURCE_TYPE_MAP.get(path.stem, ("unknown", "ot security"))
+        manifest["documents"][path.name]["source_type"] = source_type
+    write_manifest(MANIFEST_PATH, manifest)
+    print(f"Wrote manifest for {len(md_files)} documents to {MANIFEST_PATH}")
+
+
+def verify_documents(allow_unverified: bool) -> None:
+    if not MANIFEST_PATH.exists():
+        if allow_unverified:
+            print("WARNING: no RAG manifest; continuing because --allow-unverified")
+            return
+        print(
+            f"Error: missing RAG manifest {MANIFEST_PATH}. "
+            "Run with --update-manifest after reviewing document changes.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    if allow_unverified:
+        print("WARNING: skipping RAG provenance verification (--allow-unverified)")
+        return
+
+    errors = verify_rag_documents()
+    if errors:
+        for error in errors:
+            print(f"Error: {error}", file=sys.stderr)
+        print(
+            "Refusing to ingest unverified knowledge-base documents. "
+            "Review the changes, then run --update-manifest.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    print("Verified RAG document manifest.")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Ingest RAG documents into ChromaDB.")
     parser.add_argument(
@@ -65,11 +129,25 @@ def main():
         action="store_true",
         help="Delete existing collection and re-ingest from scratch",
     )
+    parser.add_argument(
+        "--update-manifest",
+        action="store_true",
+        help="Recompute document hashes in data/rag_documents/manifest.json",
+    )
+    parser.add_argument(
+        "--allow-unverified",
+        action="store_true",
+        help="Skip provenance verification (local development only)",
+    )
     args = parser.parse_args()
 
     if not RAG_DIR.exists():
         print(f"Error: RAG documents directory not found: {RAG_DIR}", file=sys.stderr)
         sys.exit(1)
+
+    if args.update_manifest:
+        update_manifest()
+    verify_documents(args.allow_unverified)
 
     client = chromadb.PersistentClient(str(CHROMA_DIR))
 
@@ -102,23 +180,19 @@ def main():
         print(f"Error: no markdown files found in {RAG_DIR}", file=sys.stderr)
         sys.exit(1)
 
-    SOURCE_TYPE_MAP = {
-        "asset_inventory": ("asset", "plc ip zone firmware asset ot device"),
-        "iec62443_controls": (
-            "control",
-            "iec 62443 security control standard requirement",
-        ),
-        "past_incidents": ("incident", "past incident report anomaly attack response"),
-    }
-
     for md_path in md_files:
         text = md_path.read_text(encoding="utf-8")
         chunks = chunk_markdown(text, md_path.stem)
-        print(f"  {md_path.name}: {len(chunks)} chunks")
-
         source_type, default_keywords = SOURCE_TYPE_MAP.get(
             md_path.stem, ("unknown", "ot security")
         )
+        suspicious = detect_instruction_patterns(text)
+        if suspicious:
+            print(
+                f"  WARNING: {md_path.name} contains instruction-like text "
+                f"({', '.join(suspicious)}); review before use."
+            )
+        print(f"  {md_path.name}: {len(chunks)} chunks")
 
         for i, (content, heading) in enumerate(chunks):
             doc_id = f"{md_path.stem}_{i:03d}"
@@ -130,6 +204,8 @@ def main():
                     "section": heading,
                     "file": md_path.name,
                     "keywords": default_keywords,
+                    "source_sha256": sha256_file(md_path),
+                    "suspicious_patterns": ", ".join(suspicious),
                 }
             )
             ids.append(doc_id)

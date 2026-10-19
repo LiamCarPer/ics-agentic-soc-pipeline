@@ -1,12 +1,15 @@
 """RAG enrichment — retrieves context from ChromaDB for a given anomaly alert."""
 
+import os
 from pathlib import Path
 
 import chromadb
 from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction
 
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
-CHROMA_PATH = _PROJECT_ROOT / "data" / "chromadb"
+CHROMA_PATH = Path(
+    os.environ.get("CHROMA_PATH", str(_PROJECT_ROOT / "data" / "chromadb"))
+)
 COLLECTION_NAME = "ot_soc_knowledge"
 EMBEDDING_MODEL = "all-MiniLM-L6-v2"
 
@@ -69,7 +72,9 @@ def _build_query(alert: dict) -> str:
     return ". ".join(parts) + "."
 
 
-def retrieve_context(alert: dict) -> str:
+def retrieve_context_details(alert: dict) -> tuple[str, list[str]]:
+    """Return rendered RAG context and the retrieved chunk ids."""
+
     collection = _get_collection()
     query = _build_query(alert)
 
@@ -95,6 +100,12 @@ def retrieve_context(alert: dict) -> str:
         else [],
     }
 
+    chunk_ids: list[str] = []
+    for result in (asset_results, control_results, incident_results):
+        result_ids = result.get("ids") or []
+        if result_ids and result_ids[0]:
+            chunk_ids.extend(str(chunk_id) for chunk_id in result_ids[0])
+
     output_parts = []
     for label, docs in sections.items():
         if docs:
@@ -102,6 +113,10 @@ def retrieve_context(alert: dict) -> str:
             output_parts.extend(docs)
 
     if not output_parts:
-        return "No relevant context found."
+        return "No relevant context found.", []
 
-    return "\n\n".join(output_parts)
+    return "\n\n".join(output_parts), chunk_ids
+
+
+def retrieve_context(alert: dict) -> str:
+    return retrieve_context_details(alert)[0]
